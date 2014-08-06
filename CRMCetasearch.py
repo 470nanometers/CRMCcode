@@ -286,6 +286,5 @@ else:
   print "File must be in HepMC format"
 
 
-#dkfjgsdkjfhskdjfhsdkjgksdfgjksdhfjkhsdkjfhasdjk
 
 
