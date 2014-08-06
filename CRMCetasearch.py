@@ -285,14 +285,6 @@ else:
   print "Usage: python CRMCetasearch.py [PATH/FILE]"
   print "File must be in HepMC format"
 
-  
 
-
-
-
-###########TEEST TEST TEST
-################test 2 how does this git thing work???
-
-#$ BIOOOOOOOOOOOOOOOOOOPPPPPPPPPPPP
 
 
