@@ -245,7 +245,7 @@ if len(sys.argv)>1:
       parti = item.parti
       etaphi=[]
 
-      if part > 800: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
+      if part > 900: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
 
 
        # stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
@@ -261,7 +261,7 @@ if len(sys.argv)>1:
             #stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
           #particles: particle number, ID, energy, longitudinal momentum, transverse momentum1, transverse momentum2
 
-          if item2.ID >95 and item2.eta < 13 and item2.eta > 6: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
+          if item2.ID >95 and item2.eta < 11 and item2.eta > 9: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
             if str(item2.eta) != 'inf' and str(item2.eta) != '-inf':
               #eta.append(item2.eta) #skip infinities, i.e. very far forward/backwards or errors
             #xF.append(item2.xF)
@@ -326,7 +326,7 @@ if len(sys.argv)>1:
   i=0
   c = root.TCanvas()
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf[') #start pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut.pdf[') #start pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf[') #start pdf
   for item in hists: #graph all events
     if length[i] ==0:
       coeff = 1 
@@ -355,11 +355,11 @@ if len(sys.argv)>1:
     graphme.SetLabelSize(0.025,"Y");
     #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
     #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf') #fill multipage pdf
-    c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut.pdf') #fill multipage pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf') #fill multipage pdf
     i+=1
 
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf]') #close pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut.pdf]') #close pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf]') #close pdf
   
 
   
