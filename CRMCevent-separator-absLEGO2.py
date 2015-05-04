@@ -54,9 +54,10 @@ import numpy as np
 from scipy import stats
 import itertools
 from mpl_toolkits.mplot3d import Axes3D
-from ROOT import * #pyROOT, works on bradbury;  to use elsewhere (force)recompile root from APE with python enabled in the root config file
+import ROOT as root #pyROOT, works on bradbury;  to use elsewhere (force)recompile root from APE with python enabled in the root config file
 import random
 import CRMC2CORSIKA as C2C
+#from ROOT import *
 
 
 
@@ -81,6 +82,17 @@ def set_palette(name="palette", ncontours = 100):#ncontours=999):
         red   = [0.00, 0.00, 0.67, 1.00, 0.51]
         green = [0.00, 0.61, 0.80, 0.20, 0.00]
         blue  = [0.51, 0.50, 0.08, 0.00, 0.00]
+    elif name == "hot":
+        stops = [ 0.00, 0.25, 0.50, 0.75, 1.00]
+        red   = [ 0.00, 0.50, 1.00, 1.00, 1.00]
+        green = [ 0.00, 0.00, 0.55, 1.00, 1.00]
+        blue  = [ 0.00, 0.00, 0.00, 0.00, 1.00]
+    elif name== "invhot":
+        stops = [ 0.00, 0.25, 0.50, 0.75, 1.00]
+        red   = [ 1.00, 1.00, 1.00, 0.50, 0.00]
+        green = [ 1.00, 1.00, 0.55, 0.00, 0.00]
+        blue  = [ 1.00, 0.00, 0.00, 0.00, 0.00]
+
 
     else:
         # default palette, looks cool
@@ -122,24 +134,20 @@ class Particle:
     self.py = py
     self.pz = pz
     self.pT = np.sqrt(float(px)**2 + float(py)**2)
-    self.P = np.sqrt(float(px)**2+float(py)**2+float(pz)**2)
-    self.eta=(0.5*np.log((np.sqrt(float(px)**2+float(py)**2+float(pz)**2)+float(pz))/(np.sqrt(float(px)**2+float(py)**2+float(pz)**2)-float(pz)))) #this is eta lab??, need eta COM?
+    self.eta=(0.5*np.log((np.sqrt(float(px)**2+float(py)**2+float(pz)**2)+float(pz))/(np.sqrt(float(px)**2+float(py)**2+float(pz)**2)-float(pz))))
     self.ID = int(ID)
     self.xF = float(pz)/float(energy) #xF=2*pL/P(max) = 2*pL/sqrt(sNN) , so this will; energy here is total energy
-    self.phi = np.arctan2(float(py),float(px))
+    self.phi = np.arctan2(float(py),float(px)) #azimuthal angle
     self.pEnergy = pEnergy #energy of particle
     self.status = status
-    self.theta = np.arctan2(float(self.pT),float(pz)) #correct!
-    self.eta2=(-1)*np.log(self.theta/2) #correct!
-    #self.etaCOM = 
+    ##self.v1 = float(px)/(float(px)**2+float(py)**2) ##theoretical definition with respect to known reaction plane
+    ##self.v2 = (float(px)**2-float(py)**2)/(float(px)**2+float(py)**2) ##theoretical definition with respect to known reaction plane
     ## pz is along the 'beam' i.e. direction of impact.
     ## pT = sqrt(px^2 + py^2)
     ## eta = 1/2 * ln ((P + pL)/(P - pL)) ;  pseudorapidity; pL==pz
     #self.v2 = (float(px)**2-float(py)**2)/(float(px)**2+float(py)**2) #its actually supposed to be the expectation value, but this should give us some idea
-    ## eta2 = -ln(theta/2), theta = arctan(pT/pL)
-    ## eta and eta2 are nearly the same (to 10^-4)
-    ## delta eta should be invariant under pz boosts, as the boost is addititive and canceles withteh difference? (confirm?)
-    ## boosting regular rapidity is addititive, so taking rapidity differences cancels out the boost
+
+    ##eta = -ln(thetaCOM/2)
 
 
 #####main
@@ -241,20 +249,20 @@ if len(sys.argv)>1:
       parti = item.parti
       etaphi=[]
 
-      if part > 800: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
+      if part > 900: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
 
 
-        #stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
-        #stackout.write("    "+str(part)+" "+ '%6e' %float(item.energy)+'\n') 
+        ##stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
+        ##stackout.write("    "+str(part)+" "+ '%6e' %float(item.energy)+'\n') 
         #1st line, num particles, primary energy
         p=0
         for item2 in item.particlelist: #particle lists for each event
           #pT.append(float(item2.pT))
           p+=1
 ### TODO: need to convert CRMC IDs to CORSIKA IDs, getting errors
-          corid = C2C.convert(item2.ID)
-          #if corid >0: #write particle only if matched, but this will mess up particle count above...what to do?
-            #stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
+          ##corid = C2C.convert(item2.ID)
+          ##if corid >0: #write particle only if matched, but this will mess up particle count above...what to do?
+            ##stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
           #particles: particle number, ID, energy, longitudinal momentum, transverse momentum1, transverse momentum2
 
           if item2.ID >95: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
@@ -264,19 +272,23 @@ if len(sys.argv)>1:
             #ID.append(item2.ID)
               #phi.append(item2.phi) # I think this works, need an eta for each phi, phi in radians
               eta = item2.eta
-              #eta = item2.eta2
               #if item2.phi < 0: #if the radian angle is less than 0, aka convert from [-pi,pi] range to [0,2pi], doesn't do much to the final graph
                 #phi = np.pi*2 +item2.phi #make positive angles for consistancy
               #else: # if angle is positive or zero, just include
               phi = item2.phi
               etaphi.append([eta,phi])
-        #stackout.close()#close output file after writing event
+        ##stackout.close()#close output file after writing event
   
         #s = np.array(list(itertools.permutations(eta,2))) #repeats AB, AC, AD, BA, BC, BD, CA, CB, CD, etc.
         f = np.array(list(itertools.combinations(etaphi,2))) #combination of permutations of eta/phi pairs
-        etaphidiff = TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 75, -6, 6, 75, -4, 4)#used to be 100x100 bins, now 50x50
+        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 75, 0, np.pi, 75, 0, 12)#used to be 100x100 bins, now 50x50
         for item in f:
-          etaphidiff.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2]); hopefully this is the correct phi
+          deleta=abs(item[0][0]-item[1][0])
+          delphi=abs(item[0][1]-item[1][1])
+          if delphi > np.pi:
+            delphi = 2*np.pi - delphi
+          etaphidiff.Fill(delphi, deleta) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2]); hopefully this is the correct phi
+          #etaphidiff.Fill( delphi, (deleta*-1.)) #should be eta1-eta2 and negative phi1-phi2 ([e1,p1][e2,p2]); mirroring across delphi==0
         hists.append(etaphidiff)
         histlist.append(etaphi)
         length.append(len(f))
@@ -284,15 +296,20 @@ if len(sys.argv)>1:
 
   ### Now to get the mixed event background i.e. eta(event1)1-eta(event2)2'...etc.; mixed events shouldn't be correlated
   ## this will take forever, but will hopefully not eat all the memory
-  #totalmixed = TH1F('totalmixed', 'etadiff', 200, -6, 6)
-  totalmixed = TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, -6, 6, 75, -4, 4)#used to be 100x100 bins, now 50x50
+  #totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
+  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, 0, np.pi, 75, 0, 12)#used to be 100x100 bins, now 50x50
   f=0
   while f < len(histlist): #get first list of etas
     j=f+1 #start on second eta list
     while j < len(histlist): #get second list of etas; repeat for all etas, no repeats i.e. 1-2, 1-3, 1-4, but no 1-1 or 4-1
       s = np.array(list(itertools.product(histlist[f],histlist[j]))) #get permutations of one event etas with all the other event's etas
       for item in s:
-        totalmixed.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) # get deltas and fill histogram, only one hist needed
+        tdeleta=abs(item[0][0]-item[1][0])
+        tdelphi=abs(item[0][1]-item[1][1])
+        if tdelphi > np.pi:
+          tdelphi = 2*np.pi - tdelphi
+        totalmixed.Fill(tdelphi, tdeleta) # get deltas and fill histogram, only one hist needed
+        #totalmixed.Fill(tdelphi, (tdeleta*-1.)) # get deltas and fill histogram, only one hist needed, Mirroring Across tdelphi==0
       lentot+=len(s) #number of mixed event pairs
       j+=1
     f+=1
@@ -304,7 +321,7 @@ if len(sys.argv)>1:
   #i=0
   #mixed=[]
   #while i < len(histlist):
-    #etaphimixed = TH2F('etaphimixed_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
+    #etaphimixed = root.TH2F('etaphimixed_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
     #for item2 in histlist[i]: #get eta(item2[0]) and phi(item2[1])
       #a=i
       #while a == i:
@@ -321,9 +338,9 @@ if len(sys.argv)>1:
 
 
   i=0
-  c = TCanvas()
+  c = root.TCanvas()
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf[') #start pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi2.pdf[') #start pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphiabsLEGO2.pdf[') #start pdf
   for item in hists: #graph all events
     if length[i] ==0:
       coeff = 1 
@@ -333,37 +350,50 @@ if len(sys.argv)>1:
     #graphme.Divide(mixed[i]) # signal pairs hist/ mixed events hist, should be same number of events
     graphme.Divide(totalmixed) # signal pairs hist/ mixed events hist, needs the coeff
     graphme.Scale(coeff) #multiply by num mixed pairs/num signal pairs
-    gROOT.Reset()
-    gROOT.SetStyle("Plain")
+    root.gROOT.Reset()
+    root.gROOT.SetStyle("Plain")
     c.Modified()
-    gStyle.SetOptStat()
-    #gStyle.SetOptFit()
-    set_palette('wtf') #still not very visible around 2-3, should find some way to 'set' teh z axis scale
-    #gStyle.SetPalette(30)
-    #gPad.SetLogz() 
-    graphme.SetMinimum(0)#testing z axis min
-    graphme.SetMaximum(5)#testing z axis max
-    graphme.Draw("colz")
+    root.gStyle.SetOptStat()
+    #root.gStyle.SetOptFit()
+    #set_palette('wtf') #still not very visible around 2-3
+    root.gPad.SetPhi(30)
+    #root.gPad.SetPhi(120)
+    root.gPad.SetTheta(45)
+
+    graphme.SetMinimum(0.6)#testing z axis min
+    graphme.SetMaximum(2)#testing z axis max
+    #graphme.Draw("colz")
+    graphme.Draw("lego2")
     #graphme.Draw("contz")
     #graphme.SetMinimum(1e-15)
-    graphme.GetXaxis().SetTitle("#Delta#eta")
-    graphme.GetYaxis().SetTitle("#Delta#phi (radians)")
+    graphme.GetYaxis().SetTitle("#Delta#eta")
+    graphme.GetXaxis().SetTitle("#Delta#phi (radians)")
     graphme.SetLabelSize(0.025);
-    graphme.SetLabelSize(0.025,"Y");
+    graphme.SetLabelSize(0.025,"Y");    
     #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
     #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf') #fill multipage pdf
-    c.Print(filename.strip('.hepmc')+'_ROOTetaphi2.pdf') #fill multipage pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTetaphiabsLEGO2.pdf') #fill multipage pdf
     i+=1
 
+  #draw "mixed" events as a control, just to make sure there is no "signal"
+  totalmixed.Scale(1./(totalmixed.Integral()))
+  #totalmixed.Draw("colz")
+  totalmixed.Draw("lego2")
+  totalmixed.SetTitle("Mixed events")
+  totalmixed.GetYaxis().SetTitle("#Delta#eta")
+  totalmixed.GetXaxis().SetTitle("#Delta#phi (radians)")
+  totalmixed.SetLabelSize(0.025);
+  totalmixed.SetLabelSize(0.025,"Y");
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphiabsLEGO2.pdf') #fill multipage pdf
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf]') #close pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi2.pdf]') #close pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphiabsLEGO2.pdf]') #close pdf
   
 
   
 
-#### if the file is not input ####
+#### if the file is not input ####crmc_eposlhc_887903004_p_C_1e+08.hepmc
 else:
-  print "Usage: python CRMCevent-separator-5.py [PATH/FILE]"
+  print "Usage: python CRMCevent-separator-absLEGO2.py [PATH/FILE]"
   print "File must be in HepMC format"
 
   
