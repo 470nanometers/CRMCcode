@@ -16,11 +16,6 @@
 # V int    int double double double double     int           int         int          double
 # V barcode id   x      y       z     ctau  numberOrphanIn numberOut EntriesinWeight ListWeight
 
-#H is heavy ion collision information
-# H   int   int   int   int   int   int   int   int   int   float   float   float   float
-# H hardScatterings projectileParticipants targetPatricipants NNcollisions spectatorNeutrons spectatorProtons N-Nwounded Nwounded-N Nwound-Nwound ImpactParameter AzimuthalAngle Eccentricity NNineasticCrossSection
-#one or more of these shoudl tell us the centrality
-
 #New events are headed by lines starting with: E, U, C, H, F
 # E - general event info
 # U - Momentum and position units
@@ -58,62 +53,8 @@ import ROOT as root #pyROOT, works on bradbury;  to use elsewhere (force)recompi
 import random
 import CRMC2CORSIKA as C2C
 
-
-
-def set_palette(name="palette", ncontours = 100):#ncontours=999):
-
-    from array import array
-    from ROOT import TColor, gStyle
-
-    """Set a color palette from a given RGB list
-    stops, red, green and blue should all be lists of the same length
-    see set_decent_colors for an example"""
-
-    if name == "gray" or name == "grayscale":
-        stops = [0.00, 0.34, 0.61, 0.84, 1.00]
-        red   = [1.00, 0.84, 0.61, 0.34, 0.00]
-        green = [1.00, 0.84, 0.61, 0.34, 0.00]
-        blue  = [1.00, 0.84, 0.61, 0.34, 0.00]
-        # elif name == "whatever":
-        # (define more palettes)
-    elif name =='wtf':
-        stops = [0.00, 0.25, 0.50, 0.75, 1.00]
-        red   = [0.00, 0.00, 0.67, 1.00, 0.51]
-        green = [0.00, 0.61, 0.80, 0.20, 0.00]
-        blue  = [0.51, 0.50, 0.08, 0.00, 0.00]
-    elif name == "hot":
-        stops = [ 0.00, 0.25, 0.50, 0.75, 1.00]
-        red   = [ 0.00, 0.50, 1.00, 1.00, 1.00]
-        green = [ 0.00, 0.00, 0.55, 1.00, 1.00]
-        blue  = [ 0.00, 0.00, 0.00, 0.00, 1.00]
-    elif name== "invhot":
-        stops = [ 0.00, 0.25, 0.50, 0.75, 1.00]
-        red   = [ 1.00, 1.00, 1.00, 0.50, 0.00]
-        green = [ 1.00, 1.00, 0.55, 0.00, 0.00]
-        blue  = [ 1.00, 0.00, 0.00, 0.00, 0.00]
-
-
-    else:
-        # default palette, looks cool
-        stops = [0.00, 0.34, 0.61, 0.84, 1.00]
-        red   = [0.00, 0.00, 0.87, 1.00, 0.51]
-        green = [0.00, 0.81, 1.00, 0.20, 0.00]
-        blue  = [0.51, 1.00, 0.12, 0.00, 0.00]
-
-    s = array('d', stops)
-    r = array('d', red)
-    g = array('d', green)
-    b = array('d', blue)
-
-    npoints = len(s)
-    TColor.CreateGradientColorTable(npoints, s, r, g, b, ncontours)
-
-    # For older ROOT versions
-    #gStyle.CreateGradientColorTable(npoints, s, r, g, b, ncontours)
-    gStyle.SetNumberContours(ncontours)
-
 class Event:
-  def __init__(self, numP,numQGP, numQGPnu, particlelist, energy, parti): #numpi,numK,CS, CSe,Im,iCS,
+  def __init__(self, numP,numQGP, numQGPnu, particlelist, energy): #numpi,numK,CS, CSe,Im,iCS,
     #self.CS = CS #cross section
     #self.CSe = CSe #cross section error
     #self.Im = Im #impact parameter
@@ -125,10 +66,9 @@ class Event:
     self.numsBaryon = sBaryon
     self.numsMeson = sMeson
     self.particlelist = particlelist
-    self.parti = parti
 
 class Particle:
-  def __init__(self, px, py, pz, ID, energy, phi, pEnergy, status):
+  def __init__(self, px, py, pz, ID, energy, phi, pEnergy):
     self.px = px
     self.py = py
     self.pz = pz
@@ -138,7 +78,6 @@ class Particle:
     self.xF = float(pz)/float(energy) #xF=2*pL/P(max) = 2*pL/sqrt(sNN) , so this will; energy here is total energy
     self.phi = np.arctan2(float(py),float(px))
     self.pEnergy = pEnergy #energy of particle
-    self.status = status
     ## pz is along the 'beam' i.e. direction of impact.
     ## pT = sqrt(px^2 + py^2)
     ## eta = 1/2 * ln ((P + pL)/(P - pL)) ;  pseudorapidity; pL==pz
@@ -165,7 +104,6 @@ if len(sys.argv)>1:
   numP= 0
   numQGP = 0
   numQGPnu = 0
-  parti = 0
   sBaryon = 0
   sMeson = 0
   px = 0
@@ -173,7 +111,6 @@ if len(sys.argv)>1:
   pz = 0
   phi = 0
   pEnergy = 0
-  status =0
   particlelist=[]
   iterator = 0
   for line in HEPfile:
@@ -181,7 +118,7 @@ if len(sys.argv)>1:
     if iterator >4: #dumb workaround to get past the empty line and the first E line so 1st event is not zeros
       parts = line.split() #types of lines prefixed with: P,V,E, U, C, H,F
       if parts[0]=='E': #start of new event -> reset
-        eventarray.append(Event(numP,numQGP,numQGPnu, particlelist, energy, parti)) #numpi,numK,CS,CSe,Im,iCS,
+        eventarray.append(Event(numP,numQGP,numQGPnu, particlelist, energy)) #numpi,numK,CS,CSe,Im,iCS,
         #Im= 0 #reset
         #iCS= 0
         #CS= 0
@@ -189,19 +126,16 @@ if len(sys.argv)>1:
         numP= 0
         numQGP = 0
         numQGPnu = 0
-        parti = 0
         sBaryon = 0
         px = 0
         py = 0
         pz = 0
         phi = 0
         pEnergy = 0
-        status = 0
         particlelist=[]
       if parts[0] == 'H': #get impact parameter and inelastic cross section
         Im = parts[10]
         iCS = parts[13]
-        parti = int(parts[2]) + int(parts[3])
       if parts[0] == 'C': #get cross section and error
         CS = parts[1]
         CSe = parts[2]
@@ -212,18 +146,15 @@ if len(sys.argv)>1:
           px = parts[3]
           py = parts[4]
           pz = parts[5]
-          status = parts[8] #should be 1
           pEnergy = parts[6]
           phi = parts[10]
+          particlelist.append(Particle(px, py, pz, parts[2], energy, phi, pEnergy))
+          numP+=1 #count number of unique particles
           if parts[2] == '91':
             numQGP+=1#get unique QGP count aka don't count multiple decays
-          if str(status) == '1': # count only if final state particle
-            particlelist.append(Particle(px, py, pz, parts[2], energy, phi, pEnergy, status))
-            numP+=1 #count number of unique, final state, particles
-
 
       if parts[0] == 'HepMC::IO_GenEvent-END_EVENT_LISTING': #record last event
-        eventarray.append(Event(numP,numQGP, numQGPnu, particlelist, energy, parti))#numpi,numK,CS,CSe,Im,iCS,
+        eventarray.append(Event(numP,numQGP, numQGPnu, particlelist, energy))#numpi,numK,CS,CSe,Im,iCS,
   HEPfile.close()
 
 ### now to graphing #####
@@ -242,26 +173,25 @@ if len(sys.argv)>1:
     if item.numP!=0 :
       QGP=item.numQGP
       part=item.numP
-      parti = item.parti
+
       etaphi=[]
 
-      if part > 900: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
+      if part > 750: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
 
 
-       # stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
-        #stackout.write("    "+str(part)+" "+ '%6e' %float(item.energy)+'\n') 
+        stackout = open('/corsikaqgp/stacks/'+filename.strip('.hepmc')+str(i)+'.part', "w+")  
+        stackout.write("    "+str(part)+" "+ '%6e' %float(item.energy)+'\n') 
         #1st line, num particles, primary energy
         p=0
         for item2 in item.particlelist: #particle lists for each event
           #pT.append(float(item2.pT))
           p+=1
 ### TODO: need to convert CRMC IDs to CORSIKA IDs, getting errors
-          corid = C2C.convert(item2.ID)
-          #if corid >0: #write particle only if matched, but this will mess up particle count above...what to do?
-            #stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
+
+          stackout.write("    "+str(p)+'    '+str(item2.ID)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
           #particles: particle number, ID, energy, longitudinal momentum, transverse momentum1, transverse momentum2
 
-          if item2.ID >95 and item2.eta < 11 and item2.eta > 9: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
+          if item2.ID >95: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
             if str(item2.eta) != 'inf' and str(item2.eta) != '-inf':
               #eta.append(item2.eta) #skip infinities, i.e. very far forward/backwards or errors
             #xF.append(item2.xF)
@@ -271,13 +201,13 @@ if len(sys.argv)>1:
               #if item2.phi < 0: #if the radian angle is less than 0, aka convert from [-pi,pi] range to [0,2pi], doesn't do much to the final graph
                 #phi = np.pi*2 +item2.phi #make positive angles for consistancy
               #else: # if angle is positive or zero, just include
-              phi = abs(item2.phi)
+              phi = item2.phi
               etaphi.append([eta,phi])
-        #stackout.close()#close output file after writing event
-  
+        stackout.close()#close output file after writing event
+
         #s = np.array(list(itertools.permutations(eta,2))) #repeats AB, AC, AD, BA, BC, BD, CA, CB, CD, etc.
         f = np.array(list(itertools.combinations(etaphi,2))) #combination of permutations of eta/phi pairs
-        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
+        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
         for item in f:
           etaphidiff.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2]); hopefully this is the correct phi
         hists.append(etaphidiff)
@@ -287,8 +217,8 @@ if len(sys.argv)>1:
 
   ### Now to get the mixed event background i.e. eta(event1)1-eta(event2)2'...etc.; mixed events shouldn't be correlated
   ## this will take forever, but will hopefully not eat all the memory
-  ##totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
-  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
+  #totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
+  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
   f=0
   while f < len(histlist): #get first list of etas
     j=f+1 #start on second eta list
@@ -323,17 +253,18 @@ if len(sys.argv)>1:
 
 
 
+
   i=0
   c = root.TCanvas()
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf[') #start pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf[') #start pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphi2.pdf[') #start pdf
   for item in hists: #graph all events
     if length[i] ==0:
       coeff = 1 
     else:
       coeff = lentot/length[i] #total mixed-event pairs/ one event pairs
     graphme = item 
-    ##graphme.Divide(mixed[i]) # signal pairs hist/ mixed events hist, should be same number of events
+    #graphme.Divide(mixed[i]) # signal pairs hist/ mixed events hist, should be same number of events
     graphme.Divide(totalmixed) # signal pairs hist/ mixed events hist, needs the coeff
     graphme.Scale(coeff) #multiply by num mixed pairs/num signal pairs
     root.gROOT.Reset()
@@ -341,13 +272,9 @@ if len(sys.argv)>1:
     c.Modified()
     root.gStyle.SetOptStat()
     #root.gStyle.SetOptFit()
-    set_palette('wtf') #still not very visible around 2-3, should find some way to 'set' teh z axis scale
-    #root.gStyle.SetPalette(30)
-    #root.gPad.SetLogz() 
-    graphme.SetMinimum(0)#testing z axis min
-    graphme.SetMaximum(5)#testing z axis max
+    root.gStyle.SetPalette(1)
+    #root.gPad.SetLogz()  
     graphme.Draw("colz")
-    #graphme.Draw("contz")
     #graphme.SetMinimum(1e-15)
     graphme.GetXaxis().SetTitle("#Delta#eta")
     graphme.GetYaxis().SetTitle("#Delta#phi (radians)")
@@ -355,18 +282,18 @@ if len(sys.argv)>1:
     graphme.SetLabelSize(0.025,"Y");
     #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
     #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf') #fill multipage pdf
-    c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf') #fill multipage pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTetaphi2.pdf') #fill multipage pdf
     i+=1
 
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf]') #close pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf]') #close pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTetaphi2.pdf]') #close pdf
   
 
-  
+
 
 #### if the file is not input ####
 else:
-  print "Usage: python CRMCevent-separator-etacut.py [PATH/FILE]"
+  print "Usage: python CRMCreader-strange.py [PATH/FILE]"
   print "File must be in HepMC format"
 
   

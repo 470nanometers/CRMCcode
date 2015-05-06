@@ -113,11 +113,12 @@ def set_palette(name="palette", ncontours = 100):#ncontours=999):
     gStyle.SetNumberContours(ncontours)
 
 class Event:
-  def __init__(self, numP,numQGP, numQGPnu, particlelist, energy, parti): #numpi,numK,CS, CSe,Im,iCS,
+  def __init__(self, numP,numQGP, numQGPnu, particlelist, energy, parti, centr, Im): #numpi,numK,CS, CSe,Im,iCS,
     #self.CS = CS #cross section
     #self.CSe = CSe #cross section error
-    #self.Im = Im #impact parameter
+    self.Im = Im #impact parameter
     #self.iCS = iCS #inelastic Cross section
+    self.centr = centr
     self.energy = energy
     self.numP = numP #number of unique particles per event
     self.numQGP = numQGP #number of unique QGP-like particles per event
@@ -125,7 +126,7 @@ class Event:
     self.numsBaryon = sBaryon
     self.numsMeson = sMeson
     self.particlelist = particlelist
-    self.parti = parti
+    self.parti = parti #number of participating nucleons
 
 class Particle:
   def __init__(self, px, py, pz, ID, energy, phi, pEnergy, status):
@@ -151,6 +152,7 @@ class Particle:
 ###### get file, gather data ######
 if len(sys.argv)>1:
   filename = str(sys.argv[1])
+  #pptt = str(sys.argv[2])
   eventarray=[]
   fileout = filename.strip('.hepmc')+'.txt'
   getenergy = fileout.split('_')
@@ -181,7 +183,8 @@ if len(sys.argv)>1:
     if iterator >4: #dumb workaround to get past the empty line and the first E line so 1st event is not zeros
       parts = line.split() #types of lines prefixed with: P,V,E, U, C, H,F
       if parts[0]=='E': #start of new event -> reset
-        eventarray.append(Event(numP,numQGP,numQGPnu, particlelist, energy, parti)) #numpi,numK,CS,CSe,Im,iCS,
+        eventarray.append(Event(numP,numQGP,numQGPnu, particlelist, energy, parti, centr, Im)) #numpi,numK,CS,CSe,Im,iCS,
+        #print float(iCS)*1e-12, float(CS)*1e-12, Im
         #Im= 0 #reset
         #iCS= 0
         #CS= 0
@@ -198,9 +201,10 @@ if len(sys.argv)>1:
         pEnergy = 0
         status = 0
         particlelist=[]
-      if parts[0] == 'H': #get impact parameter and inelastic cross section
-        Im = parts[10]
-        iCS = parts[13]
+      if parts[0] == 'H': #get impact parameter and inelastic cross section ==can get centrality from this??
+        Im = parts[10] #in fm
+        iCS = parts[13] #in pb
+        centr = (np.pi * float(Im)*float(Im)/(float(CS)*1e-12)) # c ~ pi*b^2/inel for b < R
         parti = int(parts[2]) + int(parts[3])
       if parts[0] == 'C': #get cross section and error
         CS = parts[1]
@@ -223,7 +227,7 @@ if len(sys.argv)>1:
 
 
       if parts[0] == 'HepMC::IO_GenEvent-END_EVENT_LISTING': #record last event
-        eventarray.append(Event(numP,numQGP, numQGPnu, particlelist, energy, parti))#numpi,numK,CS,CSe,Im,iCS,
+        eventarray.append(Event(numP,numQGP, numQGPnu, particlelist, energy, parti, centr, Im))#numpi,numK,CS,CSe,Im,iCS,
   HEPfile.close()
 
 ### now to graphing #####
@@ -235,6 +239,11 @@ if len(sys.argv)>1:
   histlist=[]
   hists=[]
   length=[]
+  centralities = root.TH1F('centralities', 'centralities', 100, -200, 200)#used to be 100x100 bins, now 50x50
+  impacts = root.TH1F('impact', 'impact', 100, 0, 10)#used to be 100x100 bins, now 50x50
+  Nvb = root.TH2F('Nvb', 'N vs impact', 100, 0, 4500, 100, 0, 10)
+  QvN = root.TH2F('QvN', 'N vs N_QGP', 100, 0, 4500, 100, 0, 100)
+  QvB = root.TH2F('QvB', 'impact vs N_QGP', 100, 0, 10, 100, 0, 100)
   lentot=0
   i =0
   for item in eventarray: #write output files here?
@@ -243,9 +252,17 @@ if len(sys.argv)>1:
       QGP=item.numQGP
       part=item.numP
       parti = item.parti
+      centr = item.centr
+      b = float(item.Im)
+      centralities.Fill(centr)
+      impacts.Fill(b)
+      Nvb.Fill( part, b)
+      QvN.Fill(part, QGP)
+      QvB.Fill(b, QGP)
       etaphi=[]
-
-      if part > 900: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
+      #comment out delta eta, delta phi graphing for now to test centralities - 2014/12/04
+      
+      if b < 4.5: #this is here for multiplicity cuts, lower b ==> higher multiplicity and more centrality,
 
 
        # stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
@@ -261,7 +278,7 @@ if len(sys.argv)>1:
             #stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
           #particles: particle number, ID, energy, longitudinal momentum, transverse momentum1, transverse momentum2
 
-          if item2.ID >95 and item2.eta < 11 and item2.eta > 9: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
+          if item2.ID >95:# and item2.pT < float(pptt): #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
             if str(item2.eta) != 'inf' and str(item2.eta) != '-inf':
               #eta.append(item2.eta) #skip infinities, i.e. very far forward/backwards or errors
             #xF.append(item2.xF)
@@ -272,12 +289,13 @@ if len(sys.argv)>1:
                 #phi = np.pi*2 +item2.phi #make positive angles for consistancy
               #else: # if angle is positive or zero, just include
               phi = abs(item2.phi)
+              #phi = item2.phi
               etaphi.append([eta,phi])
         #stackout.close()#close output file after writing event
   
         #s = np.array(list(itertools.permutations(eta,2))) #repeats AB, AC, AD, BA, BC, BD, CA, CB, CD, etc.
         f = np.array(list(itertools.combinations(etaphi,2))) #combination of permutations of eta/phi pairs
-        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
+        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part)+'_b='+str(round(b,1)), '#Delta#eta#Delta#phi', 75, -10, 10, 75, -np.pi, np.pi)#used to be 100x100 bins, now 50x50
         for item in f:
           etaphidiff.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2]); hopefully this is the correct phi
         hists.append(etaphidiff)
@@ -288,7 +306,7 @@ if len(sys.argv)>1:
   ### Now to get the mixed event background i.e. eta(event1)1-eta(event2)2'...etc.; mixed events shouldn't be correlated
   ## this will take forever, but will hopefully not eat all the memory
   ##totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
-  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
+  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, -10, 10, 75, -np.pi, np.pi)#used to be 100x100 bins, now 50x50
   f=0
   while f < len(histlist): #get first list of etas
     j=f+1 #start on second eta list
@@ -301,23 +319,6 @@ if len(sys.argv)>1:
     f+=1
 
 
-  ### Alternate mixed event maker:
-    ## takes length of event, takes a particle from event and pair it with another particle from a different, random event.  Do this for len(f)
-    ## this method completely erases my signal, likely due to dividing by empty bins
-  #i=0
-  #mixed=[]
-  #while i < len(histlist):
-    #etaphimixed = root.TH2F('etaphimixed_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
-    #for item2 in histlist[i]: #get eta(item2[0]) and phi(item2[1])
-      #a=i
-      #while a == i:
-        #a=random.randint(0,len(histlist)-1) #get a random event, not same as initial event
-      #b=random.randint(0, len(histlist[a])-1) #get random particle from event: particle is histlist[a][b]
-      #partimix = histlist[a][b] #get particle's eta and phi
-      #etaphimixed.Fill(item2[0]-partimix[0], item2[1]-partimix[1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2])
-    #mixed.append(etaphimixed)
-    #i+=1
-
 #Each mixed-event is constructed by combining triggers from a real event with partners from a different, randomly selected event with similar centrality and collision vertex as the real event  --from PHENIX paper
 #unfortunately this leads to empty bins in the method used here and therefore eliminates most of our signal (i.e. big blank graph at the end)
 
@@ -326,7 +327,62 @@ if len(sys.argv)>1:
   i=0
   c = root.TCanvas()
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf[') #start pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf[') #start pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf[') #start pdf
+  root.gROOT.Reset()
+  root.gROOT.SetStyle("Plain")
+  c.Modified()
+  root.gStyle.SetOptStat()
+  centralities.Draw()
+  centralities.GetXaxis().SetTitle("Centrality")
+  centralities.GetYaxis().SetTitle("N")
+  centralities.SetLabelSize(0.025);
+  centralities.SetLabelSize(0.025,"Y");
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf') #fill multipage pdf
+
+  root.gROOT.Reset()
+  root.gROOT.SetStyle("Plain")
+  c.Modified()
+  root.gStyle.SetOptStat()
+  impacts.Draw()
+  impacts.GetXaxis().SetTitle("Impact Parameter [fm]")
+  impacts.GetYaxis().SetTitle("N")
+  impacts.SetLabelSize(0.025);
+  impacts.SetLabelSize(0.025,"Y");
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf') #fill multipage pdf
+
+  root.gROOT.Reset()
+  root.gROOT.SetStyle("Plain")
+  c.Modified()
+  root.gStyle.SetOptStat()
+  Nvb.Draw("colz")
+  Nvb.GetYaxis().SetTitle("Impact Parameter [fm]")
+  Nvb.GetXaxis().SetTitle("Multiplicity")
+  Nvb.SetLabelSize(0.025);
+  Nvb.SetLabelSize(0.025,"Y");
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf') #fill multipage pdf
+
+  root.gROOT.Reset()
+  root.gROOT.SetStyle("Plain")
+  c.Modified()
+  root.gStyle.SetOptStat()
+  QvN.Draw("colz")
+  QvN.GetYaxis().SetTitle("Number of 'QGP-like' particles")
+  QvN.GetXaxis().SetTitle("Multiplicity")
+  QvN.SetLabelSize(0.025);
+  QvN.SetLabelSize(0.025,"Y");
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf') #fill multipage pdf
+
+  root.gROOT.Reset()
+  root.gROOT.SetStyle("Plain")
+  c.Modified()
+  root.gStyle.SetOptStat()
+  QvB.Draw("colz")
+  QvB.GetYaxis().SetTitle("Number of 'QGP-like' particles")
+  QvB.GetXaxis().SetTitle("Impact parameter [fm]")
+  QvB.SetLabelSize(0.025);
+  QvB.SetLabelSize(0.025,"Y");
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf') #fill multipage pdf
+  
   for item in hists: #graph all events
     if length[i] ==0:
       coeff = 1 
@@ -355,18 +411,21 @@ if len(sys.argv)>1:
     graphme.SetLabelSize(0.025,"Y");
     #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
     #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf') #fill multipage pdf
-    c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf') #fill multipage pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf') #fill multipage pdf
     i+=1
 
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf]') #close pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf]') #close pdf
+  
+
+
+  c.Print(filename.strip('.hepmc')+'_ROOTCentrality.pdf]') #close pdf
   
 
   
 
 #### if the file is not input ####
 else:
-  print "Usage: python CRMCevent-separator-etacut.py [PATH/FILE]"
+  print "Usage: python CRMC_Centrality_cut.py [PATH/FILE] "
   print "File must be in HepMC format"
 
   

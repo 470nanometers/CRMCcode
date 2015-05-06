@@ -58,6 +58,7 @@ import ROOT as root #pyROOT, works on bradbury;  to use elsewhere (force)recompi
 import random
 import CRMC2CORSIKA as C2C
 
+#######graph verticies by position(x,y) as they evolve through the interaction?
 
 
 def set_palette(name="palette", ncontours = 100):#ncontours=999):
@@ -113,7 +114,7 @@ def set_palette(name="palette", ncontours = 100):#ncontours=999):
     gStyle.SetNumberContours(ncontours)
 
 class Event:
-  def __init__(self, numP,numQGP, numQGPnu, particlelist, energy, parti): #numpi,numK,CS, CSe,Im,iCS,
+  def __init__(self, numP,numQGP, numQGPnu, particlelist, energy, parti, vntuple): #numpi,numK,CS, CSe,Im,iCS,
     #self.CS = CS #cross section
     #self.CSe = CSe #cross section error
     #self.Im = Im #impact parameter
@@ -126,6 +127,7 @@ class Event:
     self.numsMeson = sMeson
     self.particlelist = particlelist
     self.parti = parti
+    self.vntuple=vntuple
 
 class Particle:
   def __init__(self, px, py, pz, ID, energy, phi, pEnergy, status):
@@ -176,12 +178,13 @@ if len(sys.argv)>1:
   status =0
   particlelist=[]
   iterator = 0
+  vntuple = root.TNtuple("vNtuple","Vertex Information", "x:y:z:ctau:in:out")
   for line in HEPfile:
     iterator +=1
     if iterator >4: #dumb workaround to get past the empty line and the first E line so 1st event is not zeros
       parts = line.split() #types of lines prefixed with: P,V,E, U, C, H,F
       if parts[0]=='E': #start of new event -> reset
-        eventarray.append(Event(numP,numQGP,numQGPnu, particlelist, energy, parti)) #numpi,numK,CS,CSe,Im,iCS,
+        eventarray.append(Event(numP,numQGP,numQGPnu, particlelist, energy, parti, vntuple)) #numpi,numK,CS,CSe,Im,iCS,
         #Im= 0 #reset
         #iCS= 0
         #CS= 0
@@ -197,6 +200,7 @@ if len(sys.argv)>1:
         phi = 0
         pEnergy = 0
         status = 0
+        vntuple = root.TNtuple("vNtuple","Vertex Information", "x:y:z:ctau:in:out") #reset tuple?? does this work???
         particlelist=[]
       if parts[0] == 'H': #get impact parameter and inelastic cross section
         Im = parts[10]
@@ -205,6 +209,9 @@ if len(sys.argv)>1:
       if parts[0] == 'C': #get cross section and error
         CS = parts[1]
         CSe = parts[2]
+      if parts[0] == 'U': #get cross section and error
+        Eunits = parts[1] #units of momentum, either 'GeV' or 'MeV'
+        Lunits = parts[2] #units of length/position, either 'MM' or 'CM'
       if parts[0] == 'P':
         if parts[2] == '91': #get non-unique count of QGP-like aka number of direct QGP daughters, roughly
           numQGPnu+=1
@@ -220,153 +227,71 @@ if len(sys.argv)>1:
           if str(status) == '1': # count only if final state particle
             particlelist.append(Particle(px, py, pz, parts[2], energy, phi, pEnergy, status))
             numP+=1 #count number of unique, final state, particles
+      if parts[0] == 'V':
+          xx = float(parts[4])
+          yy = float(parts[5])
+          zz = float(parts[6])
+          ctau = float(parts[7])
+          inn = float(parts[8])
+          outt = float(parts[9])
+          vntuple.Fill(xx,yy,zz,ctau,inn,outt)
+
 
 
       if parts[0] == 'HepMC::IO_GenEvent-END_EVENT_LISTING': #record last event
-        eventarray.append(Event(numP,numQGP, numQGPnu, particlelist, energy, parti))#numpi,numK,CS,CSe,Im,iCS,
+        eventarray.append(Event(numP,numQGP, numQGPnu, particlelist, energy, parti, vntuple))#numpi,numK,CS,CSe,Im,iCS,
   HEPfile.close()
 
 ### now to graphing #####
 
-
-
-  ##Particle graphs
-  ## if there is a better way to do this I don't know it.  Wish I did.
-  histlist=[]
-  hists=[]
-  length=[]
-  lentot=0
-  i =0
-  for item in eventarray: #write output files here?
-    i+=1
-    if item.numP!=0 :
-      QGP=item.numQGP
-      part=item.numP
-      parti = item.parti
-      etaphi=[]
-
-      if part > 900: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
-
-
-       # stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
-        #stackout.write("    "+str(part)+" "+ '%6e' %float(item.energy)+'\n') 
-        #1st line, num particles, primary energy
-        p=0
-        for item2 in item.particlelist: #particle lists for each event
-          #pT.append(float(item2.pT))
-          p+=1
-### TODO: need to convert CRMC IDs to CORSIKA IDs, getting errors
-          corid = C2C.convert(item2.ID)
-          #if corid >0: #write particle only if matched, but this will mess up particle count above...what to do?
-            #stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
-          #particles: particle number, ID, energy, longitudinal momentum, transverse momentum1, transverse momentum2
-
-          if item2.ID >95 and item2.eta < 11 and item2.eta > 9: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
-            if str(item2.eta) != 'inf' and str(item2.eta) != '-inf':
-              #eta.append(item2.eta) #skip infinities, i.e. very far forward/backwards or errors
-            #xF.append(item2.xF)
-            #ID.append(item2.ID)
-              #phi.append(item2.phi) # I think this works, need an eta for each phi, phi in radians
-              eta = item2.eta
-              #if item2.phi < 0: #if the radian angle is less than 0, aka convert from [-pi,pi] range to [0,2pi], doesn't do much to the final graph
-                #phi = np.pi*2 +item2.phi #make positive angles for consistancy
-              #else: # if angle is positive or zero, just include
-              phi = abs(item2.phi)
-              etaphi.append([eta,phi])
-        #stackout.close()#close output file after writing event
-  
-        #s = np.array(list(itertools.permutations(eta,2))) #repeats AB, AC, AD, BA, BC, BD, CA, CB, CD, etc.
-        f = np.array(list(itertools.combinations(etaphi,2))) #combination of permutations of eta/phi pairs
-        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
-        for item in f:
-          etaphidiff.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2]); hopefully this is the correct phi
-        hists.append(etaphidiff)
-        histlist.append(etaphi)
-        length.append(len(f))
-        #lentot+=len(s)
-
-  ### Now to get the mixed event background i.e. eta(event1)1-eta(event2)2'...etc.; mixed events shouldn't be correlated
-  ## this will take forever, but will hopefully not eat all the memory
-  ##totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
-  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
-  f=0
-  while f < len(histlist): #get first list of etas
-    j=f+1 #start on second eta list
-    while j < len(histlist): #get second list of etas; repeat for all etas, no repeats i.e. 1-2, 1-3, 1-4, but no 1-1 or 4-1
-      s = np.array(list(itertools.product(histlist[f],histlist[j]))) #get permutations of one event etas with all the other event's etas
-      for item in s:
-        totalmixed.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) # get deltas and fill histogram, only one hist needed
-      lentot+=len(s) #number of mixed event pairs
-      j+=1
-    f+=1
-
-
-  ### Alternate mixed event maker:
-    ## takes length of event, takes a particle from event and pair it with another particle from a different, random event.  Do this for len(f)
-    ## this method completely erases my signal, likely due to dividing by empty bins
-  #i=0
-  #mixed=[]
-  #while i < len(histlist):
-    #etaphimixed = root.TH2F('etaphimixed_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
-    #for item2 in histlist[i]: #get eta(item2[0]) and phi(item2[1])
-      #a=i
-      #while a == i:
-        #a=random.randint(0,len(histlist)-1) #get a random event, not same as initial event
-      #b=random.randint(0, len(histlist[a])-1) #get random particle from event: particle is histlist[a][b]
-      #partimix = histlist[a][b] #get particle's eta and phi
-      #etaphimixed.Fill(item2[0]-partimix[0], item2[1]-partimix[1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2])
-    #mixed.append(etaphimixed)
-    #i+=1
-
-#Each mixed-event is constructed by combining triggers from a real event with partners from a different, randomly selected event with similar centrality and collision vertex as the real event  --from PHENIX paper
-#unfortunately this leads to empty bins in the method used here and therefore eliminates most of our signal (i.e. big blank graph at the end)
-
-
-
-  i=0
   c = root.TCanvas()
-  #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf[') #start pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf[') #start pdf
-  for item in hists: #graph all events
-    if length[i] ==0:
-      coeff = 1 
-    else:
-      coeff = lentot/length[i] #total mixed-event pairs/ one event pairs
-    graphme = item 
-    ##graphme.Divide(mixed[i]) # signal pairs hist/ mixed events hist, should be same number of events
-    graphme.Divide(totalmixed) # signal pairs hist/ mixed events hist, needs the coeff
-    graphme.Scale(coeff) #multiply by num mixed pairs/num signal pairs
-    root.gROOT.Reset()
-    root.gROOT.SetStyle("Plain")
-    c.Modified()
-    root.gStyle.SetOptStat()
+  root.gROOT.Reset()
+  root.gROOT.SetStyle("Plain")
+  root.gStyle.SetOptStat()
     #root.gStyle.SetOptFit()
-    set_palette('wtf') #still not very visible around 2-3, should find some way to 'set' teh z axis scale
+  set_palette('wtf') #still not very visible around 2-3, should find some way to 'set' teh z axis scale
     #root.gStyle.SetPalette(30)
-    #root.gPad.SetLogz() 
-    graphme.SetMinimum(0)#testing z axis min
-    graphme.SetMaximum(5)#testing z axis max
+  root.gPad.SetLogz() 
+  c.Print(filename.strip('.hepmc')+'_ROOTvertex.pdf[') #start pdf
+  ##vertex graphs
+  i =1
+  for item in eventarray: #write output files here?
+    graphme = root.TH2F('graphme','x:y',100, -2e-10, 2e-10, 100, -2e-11, 2e-11)
+    item.vntuple.Draw("x:y>>+graphme","","")
+    c.Modified()
     graphme.Draw("colz")
     #graphme.Draw("contz")
-    #graphme.SetMinimum(1e-15)
-    graphme.GetXaxis().SetTitle("#Delta#eta")
-    graphme.GetYaxis().SetTitle("#Delta#phi (radians)")
+    graphme.SetMinimum(1e-2)
+    graphme.SetMaximum(1e2)
+    graphme.SetTitle(str(i)+"_position_"+str(item.numP))
+    graphme.GetXaxis().SetTitle("X (mm)")
+    graphme.GetYaxis().SetTitle("Y (mm)")
     graphme.SetLabelSize(0.025);
     graphme.SetLabelSize(0.025,"Y");
     #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
-    #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf') #fill multipage pdf
-    c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf') #fill multipage pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTvertex.pdf') #fill multipage pdf
+    graphme2 = root.TH1F('graphme2','x:y',100, -1.5, 1.5)
+    item.vntuple.Draw("(y*y -x*x)/(y*y+x*x)>>+graphme2","","")
+    c.Modified()
+    graphme2.Draw()
+    #graphme.Draw("contz")
+    graphme2.SetMinimum(1e-2)
+    graphme2.SetMaximum(1e2)
+    graphme2.SetTitle(str(i)+"_eccentricity?_"+str(item.numP))
+    graphme2.GetXaxis().SetTitle("#epsilon")
+    graphme2.GetYaxis().SetTitle("N")
+    graphme2.SetLabelSize(0.025);
+    graphme2.SetLabelSize(0.025,"Y");
+    #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTvertex.pdf') #fill multipage pdf
+
     i+=1
-
-  #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf]') #close pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf]') #close pdf
-  
-
+  c.Print(filename.strip('.hepmc')+'_ROOTvertex.pdf]') #close pdf
   
 
 #### if the file is not input ####
 else:
-  print "Usage: python CRMCevent-separator-etacut.py [PATH/FILE]"
+  print "Usage: python CRMC-Vertex.py [PATH/FILE]"
   print "File must be in HepMC format"
 
   

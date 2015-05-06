@@ -39,7 +39,7 @@
 ##
 ##
 ## This program will count the number of QGP, Particles from a .hepmc file 
-## and calculate the Delta eta and delta phi distribution between them
+## and calculate the Delta phi distribution between them
 ##      Written March 2014
 ##        By Danielle LaHurd
 ##
@@ -81,17 +81,6 @@ def set_palette(name="palette", ncontours = 100):#ncontours=999):
         red   = [0.00, 0.00, 0.67, 1.00, 0.51]
         green = [0.00, 0.61, 0.80, 0.20, 0.00]
         blue  = [0.51, 0.50, 0.08, 0.00, 0.00]
-    elif name == "hot":
-        stops = [ 0.00, 0.25, 0.50, 0.75, 1.00]
-        red   = [ 0.00, 0.50, 1.00, 1.00, 1.00]
-        green = [ 0.00, 0.00, 0.55, 1.00, 1.00]
-        blue  = [ 0.00, 0.00, 0.00, 0.00, 1.00]
-    elif name== "invhot":
-        stops = [ 0.00, 0.25, 0.50, 0.75, 1.00]
-        red   = [ 1.00, 1.00, 1.00, 0.50, 0.00]
-        green = [ 1.00, 1.00, 0.55, 0.00, 0.00]
-        blue  = [ 1.00, 0.00, 0.00, 0.00, 0.00]
-
 
     else:
         # default palette, looks cool
@@ -243,130 +232,96 @@ if len(sys.argv)>1:
       QGP=item.numQGP
       part=item.numP
       parti = item.parti
-      etaphi=[]
+      phi=[]
 
       if part > 900: #this is here for multiplicity cuts, most ridges appear above N=800, setting teh cut to ~ 750 should get all of them
 
 
-       # stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
+        #stackout = open('/corsikaqgp/stacks/testing2/'+filename.strip('.hepmc')+'_'+str(i)+'.part', "w+")  
         #stackout.write("    "+str(part)+" "+ '%6e' %float(item.energy)+'\n') 
         #1st line, num particles, primary energy
         p=0
         for item2 in item.particlelist: #particle lists for each event
-          #pT.append(float(item2.pT))
           p+=1
-### TODO: need to convert CRMC IDs to CORSIKA IDs, getting errors
-          corid = C2C.convert(item2.ID)
-          #if corid >0: #write particle only if matched, but this will mess up particle count above...what to do?
-            #stackout.write("    "+str(p)+'    '+str(corid)+'    '+'%6e' %float(item2.pEnergy)+'    '+'%6e' %float(item2.pz)+'    '+'%6e' %float(item2.px)+'    '+'%6e' %float(item2.py)+'\n')
-          #particles: particle number, ID, energy, longitudinal momentum, transverse momentum1, transverse momentum2
+          #corid = C2C.convert(item2.ID)
 
-          if item2.ID >95 and item2.eta < 11 and item2.eta > 9: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
-            if str(item2.eta) != 'inf' and str(item2.eta) != '-inf':
-              #eta.append(item2.eta) #skip infinities, i.e. very far forward/backwards or errors
-            #xF.append(item2.xF)
-            #ID.append(item2.ID)
-              #phi.append(item2.phi) # I think this works, need an eta for each phi, phi in radians
-              eta = item2.eta
-              #if item2.phi < 0: #if the radian angle is less than 0, aka convert from [-pi,pi] range to [0,2pi], doesn't do much to the final graph
-                #phi = np.pi*2 +item2.phi #make positive angles for consistancy
-              #else: # if angle is positive or zero, just include
-              phi = abs(item2.phi)
-              etaphi.append([eta,phi])
-        #stackout.close()#close output file after writing event
+          #if abs(item2.ID) ==13 or abs(item2.ID) ==111 or abs(item2.ID) ==211 or abs(item2.ID) ==130 or abs(item2.ID) ==321 or abs(item2.ID) ==310 or abs(item2.ID) ==3122 or abs(item2.ID) ==3212 or abs(item2.ID) ==3112 or abs(item2.ID) ==3222 or abs(item2.ID) ==3322 or abs(item2.ID) ==3312 or abs(item2.ID) ==3334:
+          if item2.ID >95 and abs(item2.eta)>10: #not photons, EM, or QGP/strings.  Note: muons are ID +- 13, but we'd see late muons from decays not in early shower
+            #if str(item2.eta) != 'inf' and str(item2.eta) != '-inf':
+            phi.append(item2.phi) # I think this works
   
-        #s = np.array(list(itertools.permutations(eta,2))) #repeats AB, AC, AD, BA, BC, BD, CA, CB, CD, etc.
-        f = np.array(list(itertools.combinations(etaphi,2))) #combination of permutations of eta/phi pairs
-        etaphidiff = root.TH2F('etaphidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
+        f = np.array(list(itertools.permutations(phi,2))) #repeats AB, AC, AD, BA, BC, BD, CA, CB, CD, etc.
+        #f = np.array(list(itertools.combinations(etaphi,2))) #combination of permutations of eta/phi pairs
+        etaphidiff = root.TH1F('phidiff_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#phi', 100, -np.pi, np.pi)#used to be 100x100 bins, now 50x50
         for item in f:
-          etaphidiff.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2]); hopefully this is the correct phi
+          etaphidiff.Fill(item[0]-item[1]) #should be phi1-phi2 ([p1, p2]); hopefully this is the correct phi
         hists.append(etaphidiff)
-        histlist.append(etaphi)
+        histlist.append(phi)
         length.append(len(f))
         #lentot+=len(s)
 
   ### Now to get the mixed event background i.e. eta(event1)1-eta(event2)2'...etc.; mixed events shouldn't be correlated
   ## this will take forever, but will hopefully not eat all the memory
-  ##totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
-  totalmixed = root.TH2F('totalmixed', '#Delta#eta#Delta#phi', 75, -2, 2, 75, 0, np.pi)#used to be 100x100 bins, now 50x50
+  #totalmixed = root.TH1F('totalmixed', 'etadiff', 200, -6, 6)
+  totalmixed = root.TH1F('totalmixed', '#Delta#phi', 100, -np.pi, np.pi)#used to be 100x100 bins, now 50x50
   f=0
   while f < len(histlist): #get first list of etas
     j=f+1 #start on second eta list
     while j < len(histlist): #get second list of etas; repeat for all etas, no repeats i.e. 1-2, 1-3, 1-4, but no 1-1 or 4-1
       s = np.array(list(itertools.product(histlist[f],histlist[j]))) #get permutations of one event etas with all the other event's etas
       for item in s:
-        totalmixed.Fill(item[0][0]-item[1][0], item[0][1]-item[1][1]) # get deltas and fill histogram, only one hist needed
+        totalmixed.Fill(item[0]-item[1]) # get deltas and fill histogram, only one hist needed
       lentot+=len(s) #number of mixed event pairs
       j+=1
     f+=1
 
 
-  ### Alternate mixed event maker:
-    ## takes length of event, takes a particle from event and pair it with another particle from a different, random event.  Do this for len(f)
-    ## this method completely erases my signal, likely due to dividing by empty bins
-  #i=0
-  #mixed=[]
-  #while i < len(histlist):
-    #etaphimixed = root.TH2F('etaphimixed_'+str(i)+'_QGP='+str(QGP)+'_N='+str(part), '#Delta#eta#Delta#phi', 100, -6, 6, 100, -4, 4)
-    #for item2 in histlist[i]: #get eta(item2[0]) and phi(item2[1])
-      #a=i
-      #while a == i:
-        #a=random.randint(0,len(histlist)-1) #get a random event, not same as initial event
-      #b=random.randint(0, len(histlist[a])-1) #get random particle from event: particle is histlist[a][b]
-      #partimix = histlist[a][b] #get particle's eta and phi
-      #etaphimixed.Fill(item2[0]-partimix[0], item2[1]-partimix[1]) #should be eta1-eta2 and phi1-phi2 ([e1,p1][e2,p2])
-    #mixed.append(etaphimixed)
-    #i+=1
-
-#Each mixed-event is constructed by combining triggers from a real event with partners from a different, randomly selected event with similar centrality and collision vertex as the real event  --from PHENIX paper
-#unfortunately this leads to empty bins in the method used here and therefore eliminates most of our signal (i.e. big blank graph at the end)
-
-
 
   i=0
+  fit=root.TF1("fit","[0] + 2*[1]*cos(1*x) + 2*[2]*cos(2*x) + 2*[3]*cos(3*x)") #a0 + sum(2*an*cos(n*phi)), n= 1-3, 2 is elliptic flow
+  #fit=root.TF1("fit","[0] + 2*[1]*cos(2*x)") #a0 + sum(2*an*cos(n*phi)), n= 2 is elliptic flow
+  #fit.SetLineColor(kRed)
   c = root.TCanvas()
   #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf[') #start pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf[') #start pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTphi-etacut10.pdf[') #start pdf
   for item in hists: #graph all events
     if length[i] ==0:
       coeff = 1 
     else:
       coeff = lentot/length[i] #total mixed-event pairs/ one event pairs
     graphme = item 
-    ##graphme.Divide(mixed[i]) # signal pairs hist/ mixed events hist, should be same number of events
     graphme.Divide(totalmixed) # signal pairs hist/ mixed events hist, needs the coeff
     graphme.Scale(coeff) #multiply by num mixed pairs/num signal pairs
     root.gROOT.Reset()
     root.gROOT.SetStyle("Plain")
     c.Modified()
     root.gStyle.SetOptStat()
-    #root.gStyle.SetOptFit()
-    set_palette('wtf') #still not very visible around 2-3, should find some way to 'set' teh z axis scale
+    root.gStyle.SetOptFit()
+    #set_palette('wtf') #still not very visible around 2-3, should find some way to 'set' teh z axis scale
     #root.gStyle.SetPalette(30)
     #root.gPad.SetLogz() 
-    graphme.SetMinimum(0)#testing z axis min
-    graphme.SetMaximum(5)#testing z axis max
-    graphme.Draw("colz")
+    #graphme.SetMinimum(0)#testing z axis min
+    #graphme.SetMaximum(5)#testing z axis max
+    graphme.Draw()
+    graphme.Fit("fit")
     #graphme.Draw("contz")
     #graphme.SetMinimum(1e-15)
-    graphme.GetXaxis().SetTitle("#Delta#eta")
-    graphme.GetYaxis().SetTitle("#Delta#phi (radians)")
+    graphme.GetXaxis().SetTitle("#Delta#phi (radians)")
+    #graphme.GetYaxis().SetTitle("#Delta#phi (radians)")
     graphme.SetLabelSize(0.025);
     graphme.SetLabelSize(0.025,"Y");
     #c.WaitPrimitive() #uncomment if you want to look at the graph before its put in the pdf
-    #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf') #fill multipage pdf
-    c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf') #fill multipage pdf
+    c.Print(filename.strip('.hepmc')+'_ROOTphi-etacut10.pdf') #fill multipage pdf
     i+=1
 
-  #c.Print(filename.strip('.hepmc')+'_ROOTetaphimix.pdf]') #close pdf
-  c.Print(filename.strip('.hepmc')+'_ROOTetaphi-etacut11.pdf]') #close pdf
+  c.Print(filename.strip('.hepmc')+'_ROOTphi-etacut10.pdf]') #close pdf
   
 
   
 
 #### if the file is not input ####
 else:
-  print "Usage: python CRMCevent-separator-etacut.py [PATH/FILE]"
+  print "Usage: python CRMCphi.py [PATH/FILE]"
   print "File must be in HepMC format"
 
   
